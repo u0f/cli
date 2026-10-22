@@ -1,0 +1,46 @@
+name: Sync upstream
+
+# Once a day, if spicetify/cli has commits that this fork lacks, open a pull request
+# from spicetify:main into main so they can be reviewed before merging.
+# Nothing is merged automatically.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open a pull request with new upstream commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          ahead=$(gh api "repos/$REPO/compare/main...spicetify:main" --jq .ahead_by)
+          if [ "$ahead" = "0" ]; then
+            echo "Up to date with spicetify/cli."
+            exit 0
+          fi
+
+          # A pull request from spicetify:main follows that branch, so an open one already has every new commit.
+          open=$(gh pr list --repo "$REPO" --base main --state open --json headRepositoryOwner,headRefName \
+            --jq '[.[] | select(.headRepositoryOwner.login == "spicetify" and .headRefName == "main")] | length')
+          if [ "$open" != "0" ]; then
+            echo "A sync pull request is already open."
+            exit 0
+          fi
+
+          gh pr create --repo "$REPO" --base main --head spicetify:main \
+            --title "Sync with spicetify/cli" \
+            --body "spicetify/cli has $ahead new commit(s).
+
+          Before merging:
+          - [ ] Resolve conflicts. Files this fork deleted (update.go, install scripts, reddit, new-releases, upstream workflows...) must stay deleted: \`git rm\` them.
+          - [ ] Check no new remote calls came back: \`git diff HEAD~1 -- src | grep -E '^\+.*https?://'\`.
+          - [ ] Rebuild (\`pnpm build:wrapper\`, \`go build\`) and run \`spicetify backup apply\`."

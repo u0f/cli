@@ -76,7 +76,14 @@ Otros comandos habituales:
 
 ## Mantenimiento
 
-Al no tener auto-update, las correcciones para nuevas versiones de Spotify hay que traerlas a mano desde el proyecto original:
+Al no tener auto-update, las correcciones para nuevas versiones de Spotify hay que traerlas desde el proyecto original.
+
+La GitHub Action [`sync-upstream.yml`](.github/workflows/sync-upstream.yml) lo comprueba cada día a las 6:00 UTC y, si hay commits nuevos, abre una pull request de `spicetify:main` a `main` con una lista de comprobación. No fusiona nada sola. También se puede lanzar a mano desde *Actions → Sync upstream → Run workflow*. Para que funcione en un fork:
+
+1. Pestaña *Actions* → activar los workflows.
+2. *Settings → Actions → General → Workflow permissions* → marcar *Allow GitHub Actions to create and approve pull requests*.
+
+Para hacerlo a mano:
 
 ```bash
 git remote add upstream https://github.com/spicetify/cli.git
