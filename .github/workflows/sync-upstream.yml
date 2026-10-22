@@ -2,7 +2,9 @@ name: Sync upstream
 
 # Once a day, if spicetify/cli has commits that this fork lacks, open a pull request
 # from spicetify:main into main so they can be reviewed before merging.
-# Nothing is merged automatically.
+# Nothing is merged automatically. If GitHub refuses the pull request (for example
+# because "Allow GitHub Actions to create and approve pull requests" is off), an issue
+# with the comparison link and the error is opened instead.
 
 on:
   schedule:
@@ -11,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
   pull-requests: write
 
 jobs:
@@ -29,18 +32,37 @@ jobs:
           fi
 
           # A pull request from spicetify:main follows that branch, so an open one already has every new commit.
-          open=$(gh pr list --repo "$REPO" --base main --state open --json headRepositoryOwner,headRefName \
-            --jq '[.[] | select(.headRepositoryOwner.login == "spicetify" and .headRefName == "main")] | length')
+          open=$(gh api "repos/$REPO/pulls?state=open&base=main&per_page=100" \
+            --jq '[.[] | select(.head.repo.full_name == "spicetify/cli" and .head.ref == "main")] | length')
           if [ "$open" != "0" ]; then
             echo "A sync pull request is already open."
             exit 0
           fi
 
-          gh pr create --repo "$REPO" --base main --head spicetify:main \
-            --title "Sync with spicetify/cli" \
-            --body "spicetify/cli has $ahead new commit(s).
+          compare="https://github.com/$REPO/compare/main...spicetify:main"
+          body="spicetify/cli has $ahead new commit(s): $compare
 
           Before merging:
           - [ ] Resolve conflicts. Files this fork deleted (update.go, install scripts, reddit, new-releases, upstream workflows...) must stay deleted: \`git rm\` them.
           - [ ] Check no new remote calls came back: \`git diff HEAD~1 -- src | grep -E '^\+.*https?://'\`.
           - [ ] Rebuild (\`pnpm build:wrapper\`, \`go build\`) and run \`spicetify backup apply\`."
+
+          if url=$(gh api "repos/$REPO/pulls" -f head="spicetify:main" -f base=main -f title="Sync with spicetify/cli" -f body="$body" --jq .html_url 2>err.txt); then
+            echo "Opened $url"
+            exit 0
+          fi
+
+          error=$(cat err.txt)
+          echo "::warning::Could not open the pull request: $error"
+          title="spicetify/cli has new commits to sync"
+          existing=$(gh api "repos/$REPO/issues?state=open&per_page=100" --jq "[.[] | select(.title == \"$title\" and (.pull_request | not))] | length")
+          if [ "$existing" = "0" ]; then
+            gh api "repos/$REPO/issues" -f title="$title" -f body="$body
+
+          The pull request could not be opened automatically:
+          \`\`\`
+          $error
+          \`\`\`
+          If it says GitHub Actions is not permitted to create pull requests, enable *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*, or open it by hand from the link above." --jq .html_url 2>issue-err.txt \
+              || { echo "::error::Could not open an issue either (are issues enabled?): $(cat issue-err.txt)"; exit 1; }
+          fi
