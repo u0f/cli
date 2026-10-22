@@ -129,6 +129,9 @@ func refreshThemeCSS() {
 		theme = ""
 	}
 	apply.UserCSS(appDestPath, theme, scheme)
+	if err := apply.BundleThemes(appDestPath, userThemesFolder, filepath.Join(utils.GetExecutableDir(), "Themes")); err != nil {
+		utils.PrintWarning("Could not bundle themes for the theme picker: " + err.Error())
+	}
 
 	var configJson spicetifyConfigJson
 	configJson.ThemeName = settingSection.Key("current_theme").MustString("")

@@ -1,0 +1,4 @@
+Themes other than SpicetifyDefault come from https://github.com/spicetify/spicetify-themes (commit c432012),
+MIT License (see LICENSE-spicetify-themes; some themes include their own LICENSE).
+Only user.css and color.ini are kept. Remote @import rules (Google Fonts, cdnfonts) were removed
+so themes load nothing from the internet; they fall back to locally installed fonts.

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
+	"github.com/go-ini/ini"
 	"github.com/spicetify/cli/src/utils"
 )
 
@@ -119,6 +121,77 @@ func UserCSS(appsFolderPath, themeFolder string, scheme map[string]string) {
 	}
 }
 
+type bundledScheme struct {
+	Name string `json:"name"`
+	File string `json:"file"`
+}
+
+type bundledTheme struct {
+	Name    string          `json:"name"`
+	Schemes []bundledScheme `json:"schemes"`
+}
+
+var unsafeFileChars = regexp.MustCompile(`[^A-Za-z0-9_-]+`)
+
+// BundleThemes writes every theme found in themesFolders to xpui/themes (user.css plus one
+// CSS file per color scheme) and lists them in xpui/themes/index.json, so the profile-menu
+// theme picker can switch themes at runtime. Earlier folders win on duplicate names.
+func BundleThemes(appsFolderPath string, themesFolders ...string) error {
+	dest := filepath.Join(appsFolderPath, "xpui", "themes")
+	if err := os.RemoveAll(dest); err != nil {
+		return err
+	}
+
+	themes := []bundledTheme{}
+	seen := map[string]bool{}
+	for _, folder := range themesFolders {
+		entries, _ := os.ReadDir(folder)
+		for _, entry := range entries {
+			name := entry.Name()
+			if !entry.IsDir() || seen[name] {
+				continue
+			}
+			css, err := os.ReadFile(filepath.Join(folder, name, "user.css"))
+			if err != nil {
+				continue
+			}
+			seen[name] = true
+
+			out := filepath.Join(dest, name)
+			if err := os.MkdirAll(out, 0700); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(out, "user.css"), css, 0700); err != nil {
+				return err
+			}
+
+			theme := bundledTheme{Name: name}
+			if colors, err := ini.Load(filepath.Join(folder, name, "color.ini")); err == nil {
+				for _, section := range colors.Sections() {
+					if section.Name() == ini.DefaultSection {
+						continue
+					}
+					scheme := bundledScheme{Name: section.Name(), File: unsafeFileChars.ReplaceAllString(section.Name(), "_") + ".css"}
+					if err := os.WriteFile(filepath.Join(out, scheme.File), []byte(getColorCSS(section.KeysHash())), 0700); err != nil {
+						return err
+					}
+					theme.Schemes = append(theme.Schemes, scheme)
+				}
+			}
+			if len(theme.Schemes) == 0 {
+				theme.Schemes = []bundledScheme{{Name: "default", File: "default.css"}}
+				if err := os.WriteFile(filepath.Join(out, "default.css"), []byte(getColorCSS(nil)), 0700); err != nil {
+					return err
+				}
+			}
+			themes = append(themes, theme)
+		}
+	}
+
+	index, _ := json.Marshal(themes)
+	return os.WriteFile(filepath.Join(dest, "index.json"), index, 0700)
+}
+
 // UserAsset .
 func UserAsset(appsFolderPath, themeFolder string) {
 	var assetsPath = getAssetsPath(themeFolder)
@@ -133,6 +206,20 @@ func htmlMod(htmlPath string, flags Flag) {
 	var helperHTML strings.Builder
 	extensionsHTML.WriteByte('\n')
 	helperHTML.WriteByte('\n')
+
+	// Fork: apply the theme picked in the profile menu (localStorage "spicetify:theme") by
+	// pointing the colors.css / user.css links, which precede this script, at xpui/themes.
+	helperHTML.WriteString(`<script>
+			(() => {
+				let choice;
+				try { choice = JSON.parse(localStorage.getItem("spicetify:theme")); } catch {}
+				if (!choice?.theme || !choice?.scheme) return;
+				const base = "themes/" + encodeURIComponent(choice.theme) + "/";
+				document.querySelector("link.userCSS[href='colors.css']")?.setAttribute("href", base + encodeURIComponent(choice.scheme));
+				document.querySelector("link.userCSS[href='user.css']")?.setAttribute("href", base + "user.css");
+			})();
+		</script>
+`)
 
 	if flags.InjectThemeJS {
 		extensionsHTML.WriteString("<script defer src='extensions/theme.js'></script>\n")

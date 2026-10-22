@@ -131,7 +131,8 @@ func InitSetting() {
 	if len(themeName) == 0 {
 		injectCSS = false
 		injectJS = false
-		replaceColors = false
+		// Fork: keep replace_colors without a theme. colors.css then holds Spotify's own
+		// palette, and the profile-menu theme picker can still swap palettes at runtime.
 		overwriteAssets = false
 		return
 	}

@@ -11,3 +11,4 @@ import "./popup.js";
 import "./topbar.js";
 import "./playbar.js";
 import "./extension-settings.js";
+import "./theme-settings.js";

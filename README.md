@@ -14,6 +14,10 @@ Objetivo: lo justo para personalizar Spotify, **sin descargas ni código remoto*
 - Custom apps `reddit` y `new-releases`, CI y ficheros de mantenimiento del proyecto original.
 - En `lyrics-plus`: el proveedor Netease (pasaba por un mirror de un particular) y las librerías que se cargaban en tiempo de ejecución desde jsDelivr (romanización y conversión de chino, japonés y coreano).
 
+**Cambiado**
+
+- `replace_colors` funciona también sin tema: los colores de Spotify pasan siempre por las variables `--spice-*` (con su paleta original por defecto), lo que permite cambiar de tema en caliente.
+
 **Endurecido**
 
 - Proxy CORS de terceros (`cors-proxy.spicetify.app`) desactivado por defecto. Solo se usa si configuras tú uno en `localStorage["spicetify:corsProxyTemplate"]`.
@@ -24,6 +28,7 @@ Objetivo: lo justo para personalizar Spotify, **sin descargas ni código remoto*
 - `adblock.js`: [Adblockify](https://github.com/rxri/spicetify-extensions/tree/main/adblock) de ririxi (MIT), generado desde su código TypeScript revisado en el commit `5da6cf1`. Solo usa APIs internas de Spotify; no hace peticiones externas.
 - `geniusButton.js`: abre en Genius la canción o el álbum (ver abajo).
 - `coverArt.js`: clic derecho (o tres puntos) en una canción, álbum, artista, playlist, podcast, episodio o perfil → *Abrir imagen en máxima calidad*. Abre la portada o foto en el navegador, desde donde puedes guardarla. Pide a la CDN la variante más grande que existe: 2000 px en portadas de álbum, 1280 px en mosaicos de playlist y 640 px en artistas y podcasts (más no existe).
+- Menú de perfil → **Temas**: selector de tema y paleta de colores, sin terminal. Incluye los temas solo-CSS de [spicetify-themes](https://github.com/spicetify/spicetify-themes) (MIT): Blossom, BurntSienna, Dreary, Flow, Matte, Nightlight, Onepunch, SharkBlue, Sleek, Ziro y text, además de SpicetifyDefault. Se les quitaron los `@import` de Google Fonts para que no carguen nada de internet; los que tienen JavaScript (Dribbblish, StarryNight, Turntable) no se incluyen. Cualquier tema que añadas a `Themes/` o a la carpeta `Themes` de tu configuración aparece también en el selector tras `spicetify apply`. La elección es por usuario de Spotify y se aplica al recargar.
 - Menú de perfil → **Extensiones**: interruptores para activar o desactivar cada extensión instalada sin usar la terminal. El cambio se aplica al recargar Spotify (botón *Recargar ahora*).
 
 Resultado: el binario solo hace peticiones de red a `localhost` (en modo `watch`).
