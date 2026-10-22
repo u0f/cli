@@ -55,7 +55,7 @@ Get-FileHash .\spicetify-*-windows-amd64.zip   # debe coincidir con la línea de
 
 ### Actualizar
 
-Es automático: `spicetify auto` (el que ejecuta la tarea programada) comprueba como mucho una vez al día si hay una release más reciente en [u0f/cli](https://github.com/u0f/cli/releases/latest) y la instala. También puedes forzarlo con `spicetify update`. Para desactivarlo: `spicetify config auto_update 0`.
+Es automático: `spicetify auto` (el que ejecuta la [tarea programada](#que-no-se-pierda-al-actualizarse-spotify)) comprueba como mucho una vez al día si hay una release más reciente en [u0f/cli](https://github.com/u0f/cli/releases/latest) y la instala. También puedes forzarlo con `spicetify update`. Para desactivarlo: `spicetify config auto_update 0`.
 
 Antes de tocar nada verifica que `SHA256SUMS` está firmado con la clave Ed25519 de las releases (la pública va dentro del binario, en `src/cmd/update.go`) y que el archivo descargado coincide con su hash; si algo no cuadra, no cambia nada. Después aparta el ejecutable actual (`.old`), descomprime la versión nueva encima de la carpeta y ejecuta el binario nuevo con `auto`, que detecta el cambio de versión y repite `restore`, `backup` y `apply`. Si la extracción falla, se restaura el ejecutable anterior.
 
@@ -94,6 +94,8 @@ Abre Spotify una vez, inicia sesión, ciérralo y ejecuta:
 
 Para comprobar que está activo, abre el menú de tu perfil en Spotify: debe aparecer *Experimental features*.
 
+Después configura la [tarea automática](#que-no-se-pierda-al-actualizarse-spotify): sin ella, cada actualización de Spotify borra los cambios y no recibes las actualizaciones del fork.
+
 Otros comandos habituales:
 
 | Comando | Para qué |
@@ -105,7 +107,11 @@ Otros comandos habituales:
 | `spicetify restore` | Devolver Spotify a su estado original |
 | `spicetify -c` | Mostrar la ruta del fichero de configuración |
 
-**Cuando Spotify se actualiza** borra los cambios. `spicetify auto` lo detecta y vuelve a hacer backup y apply (si todo sigue aplicado, no hace nada). En Windows puedes dejarlo automático con una tarea programada que lo ejecute al iniciar sesión y cada hora, sin ventana y sin permisos de administrador (desde PowerShell, con la ruta de tu `spicetify.exe`):
+## Que no se pierda al actualizarse Spotify
+
+Cada actualización de Spotify borra los cambios de spicetify. `spicetify auto` lo detecta y vuelve a hacer backup y apply (si todo sigue aplicado, no hace nada), y de paso instala las [actualizaciones del fork](#actualizar). Para no tener que acordarte, deja que se ejecute solo:
+
+**Windows** (recomendado): una tarea programada que lo lanza al iniciar sesión y cada hora, sin ventana, sin permisos de administrador y **sin reiniciar Spotify**. Pégalo en PowerShell cambiando la ruta por la de tu `spicetify.exe`:
 
 ```powershell
 $exe = "C:\ruta\a\spicetify.exe"
@@ -117,11 +123,23 @@ Register-ScheduledTask -TaskName "Spicetify auto-apply" `
   -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -MultipleInstances IgnoreNew)
 ```
 
-En la cuenta *Administrador* integrada de Windows, añade `--bypass-admin` después de `auto -q -n`: esa cuenta ignora `-RunLevel Limited` y spicetify se negaría a ejecutarse. Si Spotify estaba abierto cuando se reaplica, los cambios se ven al reiniciarlo. Para quitarla: `Unregister-ScheduledTask -TaskName "Spicetify auto-apply"`.
+- **Cuenta *Administrador* integrada de Windows** (su SID termina en `-500`; compruébalo con `whoami /user`): añade `--bypass-admin` después de `auto -q -n`. Esa cuenta ignora `-RunLevel Limited` y spicetify se negaría a ejecutarse en silencio.
+- Comprobar que funciona: `Start-ScheduledTask "Spicetify auto-apply"` y después `Get-ScheduledTaskInfo "Spicetify auto-apply"` (`LastTaskResult` debe ser `0`).
+- Quitarla: `Unregister-ScheduledTask -TaskName "Spicetify auto-apply"`.
+
+**Linux / macOS**: una línea en `crontab -e` hace lo mismo cada hora:
+
+```bash
+0 * * * * /ruta/a/spicetify auto -q -n
+```
+
+Si Spotify se actualizó mientras estaba abierto, la reaplicación ocurre en menos de una hora, pero los cambios se ven al cerrarlo y volver a abrirlo. Hasta entonces Spotify puede mostrar errores al abrir algunos menús, porque mezcla archivos de antes y de después de reaplicar.
+
+Alternativa sin tarea: `spicetify spotify-updates block` impide que Spotify se actualice (y `unblock` lo revierte). No se recomienda: te quedas sin las correcciones de seguridad de Spotify.
 
 ## Mantenimiento
 
-Al no tener auto-update, las correcciones para nuevas versiones de Spotify hay que traerlas desde el proyecto original.
+Esta sección es para quien mantiene el fork. Los arreglos del proyecto original (por ejemplo, para nuevas versiones de Spotify) no llegan solos: hay que traerlos a `main` y publicar una release, y desde ahí sí llegan a los usuarios por el auto-update.
 
 La GitHub Action [`sync-upstream.yml`](.github/workflows/sync-upstream.yml) lo comprueba cada día a las 6:00 UTC y, si hay commits nuevos, abre una pull request de `spicetify:main` a `main` con una lista de comprobación. No fusiona nada sola. También se puede lanzar a mano desde *Actions → Sync upstream → Run workflow*. Para que funcione en un fork:
 
