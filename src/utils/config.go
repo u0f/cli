@@ -23,7 +23,6 @@ var (
 			"replace_colors":         "1",
 			"overwrite_assets":       "0",
 			"spotify_launch_flags":   "",
-			"check_spicetify_update": "1",
 			"always_enable_devtools": "0",
 		},
 		"Preprocesses": {
@@ -33,7 +32,7 @@ var (
 			"expose_apis":        "1",
 		},
 		"AdditionalOptions": {
-			"extensions":            "",
+			"extensions":            "adblock.js|geniusButton.js|coverArt.js",
 			"custom_apps":           "",
 			"sidebar_config":        "0",
 			"home_config":           "1",

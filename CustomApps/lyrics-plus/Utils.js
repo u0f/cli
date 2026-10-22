@@ -49,33 +49,6 @@ const Utils = {
 		const hanRegex = /\p{Script=Han}/u;
 		return hanRegex.test(s);
 	},
-	/**
-	 * Singleton Translator instance for {@link toSimplifiedChinese}.
-	 *
-	 * @type {Translator | null}
-	 */
-	set translator(translator) {
-		this._translatorInstance = translator;
-	},
-	_translatorInstance: null,
-	/**
-	 * Convert all Han characters to Simplified Chinese.
-	 *
-	 * Choosing Simplified Chinese makes the converted result more accurate,
-	 * as the conversion from SC to TC may have multiple possibilities,
-	 * while the conversion from TC to SC usually has only one possibility.
-	 *
-	 * @param {string} s
-	 * @returns {Promise<string>}
-	 */
-	async toSimplifiedChinese(s) {
-		// create a singleton Translator instance
-		if (!this._translatorInstance) this.translator = new Translator("zh", true);
-
-		// translate to Simplified Chinese
-		// as Traditional Chinese differs between HK and TW, forcing to use OpenCC standard
-		return this._translatorInstance.convertChinese(s, "t", "cn");
-	},
 	removeSongFeat(s) {
 		return (
 			s

@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -53,21 +51,6 @@ func applyPatches(input string, patches []Patch) string {
 	return input
 }
 
-func readRemoteCssMap(tag string, cssTranslationMap *map[string]string) error {
-	var cssMapURL string = "https://raw.githubusercontent.com/spicetify/cli/" + tag + "/css-map.json"
-	cssMapResp, err := http.Get(cssMapURL)
-	if err != nil {
-		return err
-	}
-	defer cssMapResp.Body.Close()
-
-	if err := json.NewDecoder(cssMapResp.Body).Decode(cssTranslationMap); err != nil {
-		utils.PrintWarning("Remote CSS map JSON malformed.")
-		return err
-	}
-	return nil
-}
-
 func readLocalCssMap(cssTranslationMap *map[string]string) error {
 	cssMapLocalPath := path.Join(utils.GetExecutableDir(), "css-map.json")
 	cssMapContent, err := os.ReadFile(cssMapLocalPath)
@@ -88,25 +71,7 @@ func Start(version string, spotifyBasePath string, extractedAppsPath string, fla
 	appPath := filepath.Join(extractedAppsPath, "xpui")
 	var cssTranslationMap = make(map[string]string)
 
-	if version != "Dev" {
-		fetchSpinner, _ := utils.Spinner.Start("Fetching remote CSS map")
-		tag, err := FetchLatestTagMatchingOrMain(version)
-		if err != nil {
-			fetchSpinner.Warning("Failed to fetch remote CSS map")
-			utils.PrintWarning(err.Error())
-			tag = version
-		}
-		if readRemoteCssMap(tag, &cssTranslationMap) != nil {
-			fetchSpinner.Warning("Failed to fetch remote CSS map")
-			utils.PrintInfo("Using local CSS map instead")
-			readLocalCssMap(&cssTranslationMap)
-		} else {
-			fetchSpinner.Success("Fetched remote CSS map")
-		}
-	} else {
-		utils.PrintInfo("Using local CSS map; in development environment")
-		readLocalCssMap(&cssTranslationMap)
-	}
+	readLocalCssMap(&cssTranslationMap)
 
 	cssMapPairs := make([]string, 0, len(cssTranslationMap)*4)
 	cssMapCSSPairs := make([]string, 0, len(cssTranslationMap)*2)
@@ -1137,88 +1102,4 @@ func validateReleaseBuild(spotifyBinaryPath string) error {
 
 	utils.PrintSuccess(fmt.Sprintf("Spotify's build type is %s. Continuing...", string(matches[1])))
 	return nil
-}
-
-type githubRelease = utils.GithubRelease
-
-func splitVersion(version string) ([3]int, error) {
-	vstring := version
-	if vstring[0:1] == "v" {
-		vstring = version[1:]
-	}
-	vSplit := strings.Split(vstring, ".")
-	var vInts [3]int
-	if len(vSplit) != 3 {
-		return [3]int{}, errors.New("invalid version string")
-	}
-	for i := range 3 {
-		conv, err := strconv.Atoi(vSplit[i])
-		if err != nil {
-			return [3]int{}, err
-		}
-		vInts[i] = conv
-	}
-	return vInts, nil
-}
-
-func FetchLatestTagMatchingOrMain(version string) (string, error) {
-	tag, err := utils.FetchLatestTag()
-	if err != nil {
-		return "", err
-	}
-	ver, err := splitVersion(tag)
-	if err != nil {
-		return "", err
-	}
-	versionS, err := splitVersion(version)
-	if err != nil {
-		return "", err
-	}
-	// major version matches latest, use main branch
-	if ver[0] == versionS[0] && ver[1] == versionS[1] {
-		return "main", nil
-	} else {
-		return FetchLatestTagMatchingVersion(version)
-	}
-}
-
-func FetchLatestTagMatchingVersion(version string) (string, error) {
-	if version == "Dev" {
-		return "Dev", nil
-	}
-	res, err := http.Get("https://api.github.com/repos/spicetify/cli/releases")
-	if err != nil {
-		return "", err
-	}
-
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-
-	var releases []githubRelease
-	if err = json.Unmarshal(body, &releases); err != nil {
-		return "", err
-	}
-	curVer := strings.Split(version, ".")
-	curVerMin, err2 := strconv.Atoi(curVer[2])
-	if err2 != nil {
-		return "", err2
-	}
-	for _, rel := range releases {
-		ver := strings.Split(rel.TagName[1:], ".")
-		if len(ver) != 3 {
-			break
-		} else {
-			verMin, err := strconv.Atoi(ver[2])
-			if err != nil {
-				return "", err
-			}
-			if ver[0] == curVer[0] && ver[1] == curVer[1] && verMin > curVerMin {
-				curVerMin = verMin
-			}
-		}
-	}
-	return "v" + curVer[0] + "." + curVer[1] + "." + strconv.Itoa(curVerMin), nil
 }

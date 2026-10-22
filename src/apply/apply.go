@@ -1,6 +1,7 @@
 package apply
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,17 +12,16 @@ import (
 
 // Flag enables/disables additional feature
 type Flag struct {
-	CurrentTheme         string
-	ColorScheme          string
-	InjectThemeJS        bool
-	CheckSpicetifyUpdate bool
-	Extension            []string
-	CustomApp            []string
-	SidebarConfig        bool
-	HomeConfig           bool
-	ExpFeatures          bool
-	SpicetifyVer         string
-	SpotifyVer           string
+	CurrentTheme  string
+	ColorScheme   string
+	InjectThemeJS bool
+	Extension     []string
+	CustomApp     []string
+	SidebarConfig bool
+	HomeConfig    bool
+	ExpFeatures   bool
+	SpicetifyVer  string
+	SpotifyVer    string
 }
 
 // AdditionalOptions .
@@ -56,7 +56,7 @@ func AdditionalOptions(appsFolderPath string, flags Flag) {
 			}
 		} else {
 			utils.PrintError("Spotify version mismatch with Spicetify. Please report it on our github repository.")
-			utils.PrintInfo("Spicetify might have been updated for this version already. Please run `spicetify update` to check for a new version.")
+			utils.PrintInfo("Spicetify might have been updated for this version already. Merge upstream fixes into your fork and rebuild.")
 			utils.PrintInfo("If one isn't available yet, please wait for an update to be released or downgrade Spotify to a supported version.")
 		}
 	}
@@ -175,17 +175,29 @@ func htmlMod(htmlPath string, flags Flag) {
 			Spicetify.Config["color_scheme"]="%s";
 			Spicetify.Config["extensions"] = [%s];
 			Spicetify.Config["custom_apps"] = [%s];
-			Spicetify.Config["check_spicetify_update"]=%v;
 		</script>
-		`, flags.SpicetifyVer, flags.CurrentTheme, flags.ColorScheme, extList.String(), customAppList.String(), flags.CheckSpicetifyUpdate)
+		`, flags.SpicetifyVer, flags.CurrentTheme, flags.ColorScheme, extList.String(), customAppList.String())
 	}
 
-	for _, v := range flags.Extension {
-		if strings.HasSuffix(v, ".mjs") {
-			fmt.Fprintf(&extensionsHTML, "<script defer type='module' src='extensions/%s'></script>\n", v)
-		} else {
-			fmt.Fprintf(&extensionsHTML, "<script defer src='extensions/%s'></script>\n", v)
-		}
+	// Fork: a small loader injects the extensions so they can be switched off from the
+	// profile menu (localStorage "spicetify:disabled-extensions") without running the CLI.
+	if len(flags.Extension) > 0 {
+		extensionsJSON, _ := json.Marshal(flags.Extension)
+		fmt.Fprintf(&extensionsHTML, `<script>
+			(() => {
+				let disabled = [];
+				try { disabled = JSON.parse(localStorage.getItem("spicetify:disabled-extensions")) || []; } catch {}
+				for (const name of %s) {
+					if (disabled.includes(name)) continue;
+					const script = document.createElement("script");
+					script.src = "extensions/" + name;
+					script.async = false;
+					if (name.endsWith(".mjs")) script.type = "module";
+					document.body.appendChild(script);
+				}
+			})();
+		</script>
+		`, extensionsJSON)
 	}
 
 	for _, v := range flags.CustomApp {
@@ -371,7 +383,7 @@ func insertCustomApp(jsPath string, flags Flag) {
 
 		if (len(reactSymbs) < 3) || (len(eleSymbs) < 3) {
 			utils.PrintError("Spotify version mismatch with Spicetify. Please report it on our github repository.")
-			utils.PrintInfo("Spicetify might have been updated for this version already. Please run `spicetify update` to check for a new version.")
+			utils.PrintInfo("Spicetify might have been updated for this version already. Merge upstream fixes into your fork and rebuild.")
 			utils.PrintInfo("If one isn't available yet, please wait for an update to be released or downgrade Spotify to a supported version.")
 			return content
 		}

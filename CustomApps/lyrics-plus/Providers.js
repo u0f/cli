@@ -122,49 +122,6 @@ const Providers = {
 
 		return result;
 	},
-	netease: async (info) => {
-		const result = {
-			uri: info.uri,
-			karaoke: null,
-			synced: null,
-			unsynced: null,
-			neteaseTranslation: null,
-			provider: "Netease",
-			copyright: null,
-		};
-
-		let list;
-		try {
-			list = await ProviderNetease.findLyrics(info);
-		} catch {
-			result.error = "No lyrics";
-			return result;
-		}
-
-		const karaoke = ProviderNetease.getKaraoke(list);
-		if (karaoke) {
-			result.karaoke = karaoke;
-		}
-		const synced = ProviderNetease.getSynced(list);
-		if (synced) {
-			result.synced = synced;
-		}
-		const unsynced = synced || ProviderNetease.getUnsynced(list);
-		if (unsynced) {
-			result.unsynced = unsynced;
-		}
-		const translation = ProviderNetease.getTranslation(list);
-		if ((synced || unsynced) && Array.isArray(translation)) {
-			const baseLyrics = synced ?? unsynced;
-			result.neteaseTranslation = baseLyrics.map((line) => ({
-				...line,
-				text: translation.find((t) => t.startTime === line.startTime)?.text ?? line.text,
-				originalText: line.text,
-			}));
-		}
-
-		return result;
-	},
 	lrclib: async (info) => {
 		const result = {
 			uri: info.uri,

@@ -235,7 +235,7 @@ func isValidForWatching() bool {
 func startDebugger() {
 	if len(utils.GetDebuggerPath()) == 0 {
 		EnableDevTools()
-		SpotifyRestart("--remote-debugging-port=9222", "--remote-allow-origins=*")
+		SpotifyRestart("--remote-debugging-port=9222", "--remote-allow-origins=http://localhost")
 		utils.PrintInfo("Restarted Spotify with debugger on. Waiting...")
 		for len(utils.GetDebuggerPath()) == 0 {
 			// Wait until debugger is up

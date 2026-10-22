@@ -5,17 +5,13 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"runtime"
 	"slices"
-	"strings"
 	"sync"
 
 	colorable "github.com/mattn/go-colorable"
 	"github.com/pterm/pterm"
 	"github.com/spicetify/cli/src/cmd"
-	spotifystatus "github.com/spicetify/cli/src/status/spotify"
 	"github.com/spicetify/cli/src/utils"
 	"github.com/spicetify/cli/src/utils/isAdmin"
 )
@@ -142,7 +138,6 @@ func init() {
 
 	if len(commands) < 1 {
 		help()
-		cmd.CheckUpdate(version)
 		os.Exit(0)
 	}
 }
@@ -278,45 +273,6 @@ func main() {
 	cmd.InitPaths()
 
 	utils.PrintBold("spicetify v" + version)
-	if slices.Contains(commands, "upgrade") || slices.Contains(commands, "update") {
-		updateStatus := cmd.Update(version)
-		spotifyPath := filepath.Join(cmd.GetSpotifyPath(), "Apps")
-		ex, err := os.Executable()
-		if err != nil {
-			ex = "spicetify"
-		}
-
-		if updateStatus {
-			spotStat := spotifystatus.Get(spotifyPath)
-			cmds := []string{"backup", "apply"}
-			if !spotStat.IsBackupable() {
-				cmds = append([]string{"restore"}, cmds...)
-			}
-
-			cmd := exec.Command(ex, cmds...)
-			utils.CmdScanner(cmd)
-
-			cmd = exec.Command(ex, strings.Join(commands[:], " "))
-			utils.CmdScanner(cmd)
-		}
-
-		spotStat := spotifystatus.Get(spotifyPath)
-		if spotStat.IsBackupable() {
-			utils.PrintNote("spicetify is up-to-date! If you ran this because spicetify disappeared after Spotify updated, we'll attempt to fix it for you right now.")
-			cmd.Backup(version, true)
-			cmd.CheckStates()
-			cmd.InitSetting()
-			cmd.Apply(version)
-			if !noRestart {
-				cmd.SpotifyRestart()
-			}
-		}
-
-		return
-	} else {
-		cmd.CheckUpdate(version)
-	}
-
 	var shouldRestart bool = false
 	// Chainable commands
 	for _, v := range commands {
@@ -478,8 +434,6 @@ color               1. Print all color fields and values.
 
 config-dir          Show config directory in file viewer
 
-upgrade|update      Update spicetify to the latest version if an update is available
-
 ` + utils.Bold("FLAGS") + `
 -q, --quiet         Quiet mode (no output).
 
@@ -546,9 +500,6 @@ spotify_launch_flags <string>
 
 always_enable_devtools <0 | 1>
     Whether Chrome DevTools is enabled when launching/restarting Spotify.
-
-check_spicetify_update <0 | 1>
-    Whether to always check for updates when running Spicetify.
 
 ` + utils.Bold("[Preprocesses]") + `
 disable_sentry <0 | 1>

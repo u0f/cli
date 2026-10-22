@@ -10,4 +10,4 @@ import "./helpers.js";
 import "./popup.js";
 import "./topbar.js";
 import "./playbar.js";
-import "./update.js";
+import "./extension-settings.js";

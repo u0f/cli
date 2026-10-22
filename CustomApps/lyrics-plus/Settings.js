@@ -494,7 +494,7 @@ const ServiceList = ({ itemsList, onListChange = () => {}, onToggle = () => {}, 
 };
 
 const corsProxyTemplate = () => {
-	const [proxyValue, setProxyValue] = react.useState(localStorage.getItem("spicetify:corsProxyTemplate") || "https://cors-proxy.spicetify.app/{url}");
+	const [proxyValue, setProxyValue] = react.useState(localStorage.getItem("spicetify:corsProxyTemplate") || "");
 
 	return react.createElement("input", {
 		placeholder: "CORS Proxy Template",
@@ -726,7 +726,7 @@ function openConfig() {
 		react.createElement(corsProxyTemplate),
 		react.createElement("span", {
 			dangerouslySetInnerHTML: {
-				__html: "Spotify will reload its webview after applying. Leave empty to restore default: <code>https://cors-proxy.spicetify.app/{url}</code>",
+				__html: "Spotify will reload its webview after applying. Leave empty to disable the proxy",
 			},
 		})
 	);

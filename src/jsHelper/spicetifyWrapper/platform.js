@@ -131,13 +131,14 @@ void (async function addProxyCosmos() {
       return async function (url, body) {
         const urlObj = new URL(url);
 
-        const corsProxyURLTemplate = window.localStorage.getItem("spicetify:corsProxyTemplate") ?? "https://cors-proxy.spicetify.app/{url}";
+        // Fork: no third-party proxy by default. Set "spicetify:corsProxyTemplate" to opt in.
+        const corsProxyURLTemplate = window.localStorage.getItem("spicetify:corsProxyTemplate") || null;
         const isWebAPI = urlObj.hostname === "api.spotify.com";
         const isSpClientAPI = urlObj.hostname.includes("spotify.com") && urlObj.hostname.includes("spclient");
         const isInternalURL = internalEndpoints.has(urlObj.protocol);
         if (isInternalURL) return internalFetch.apply(this, [url, body]);
 
-        const shouldUseCORSProxy = !isWebAPI && !isSpClientAPI && !isInternalURL;
+        const shouldUseCORSProxy = !isWebAPI && !isSpClientAPI && !isInternalURL && !!corsProxyURLTemplate;
 
         const method = allowedMethodsMap[prop.toLowerCase()];
         const headers = {

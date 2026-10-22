@@ -124,7 +124,7 @@ func SendReload(debuggerURL *string) error {
 		*debuggerURL = GetDebuggerPath()
 	}
 
-	socket, err := websocket.Dial(*debuggerURL, "", "http://localhost/")
+	socket, err := websocket.Dial(*debuggerURL, "", "http://localhost")
 	if err != nil {
 		return err
 	}

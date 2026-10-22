@@ -272,23 +272,3 @@ func ReadAnswer(info string, defaultAnswer bool, quietModeAnswer bool) bool {
 	}
 	return ReadAnswer(info, defaultAnswer, quietModeAnswer)
 }
-
-// CheckUpdate fetches latest package version from Github API and inform user if there is new release
-func CheckUpdate(version string) {
-	if !settingSection.Key("check_spicetify_update").MustBool() || version == "Dev" {
-		return
-	}
-
-	latestTag, err := utils.FetchLatestTag()
-
-	if err != nil {
-		utils.PrintError("Cannot fetch latest release info")
-		utils.PrintError(err.Error())
-		return
-	}
-
-	if latestTag != version {
-		utils.PrintInfo("New version available: v" + latestTag + " (currently on: v" + version + ")")
-		utils.PrintInfo(`Run "spicetify update" or use a package manager to update spicetify`)
-	}
-}
