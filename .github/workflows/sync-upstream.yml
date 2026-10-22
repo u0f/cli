@@ -50,7 +50,9 @@ jobs:
           - [ ] Check no new remote calls came back: \`git diff HEAD~1 -- src | grep -E '^\+.*https?://'\`.
           - [ ] Rebuild (\`pnpm build:wrapper\`, \`go build\`) and run \`spicetify backup apply\`."
 
-          if gh api "repos/$REPO/pulls" -f head="spicetify:main" -f base=main -f title="Sync with spicetify/cli" -f body="$body" > pr.json 2>err.txt; then
+          # maintainer_can_modify must be false: it would need write access to spicetify/cli.
+          if gh api "repos/$REPO/pulls" -f head="spicetify:main" -f base=main -F maintainer_can_modify=false \
+            -f title="Sync with spicetify/cli" -f body="$body" > pr.json 2>err.txt; then
             echo "Opened $(jq -r .html_url pr.json)"
             exit 0
           fi
