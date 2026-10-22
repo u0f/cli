@@ -26,7 +26,7 @@ Objetivo: lo justo para personalizar Spotify, **sin descargas ni código remoto*
 **Añadido** (activas por defecto)
 
 - `adblock.js`: [Adblockify](https://github.com/rxri/spicetify-extensions/tree/main/adblock) de ririxi (MIT), generado desde su código TypeScript revisado en el commit `5da6cf1`. Solo usa APIs internas de Spotify; no hace peticiones externas.
-- `geniusButton.js`: abre en Genius la canción o el álbum (ver abajo).
+- `geniusButton.js`: abre en Genius la canción, el álbum o el artista (ver abajo).
 - `coverArt.js`: clic derecho (o tres puntos) en una canción, álbum, artista, playlist, podcast, episodio o perfil → *Abrir imagen en máxima calidad*. Abre la portada o foto en el navegador, desde donde puedes guardarla. Pide a la CDN la variante más grande que existe: 2000 px en portadas de álbum, 1280 px en mosaicos de playlist y 640 px en artistas y podcasts (más no existe).
 - Menú de perfil → **Temas**: selector de tema y paleta de colores, sin terminal. Incluye los temas solo-CSS de [spicetify-themes](https://github.com/spicetify/spicetify-themes) (MIT): Blossom, BurntSienna, Dreary, Flow, Matte, Nightlight, Onepunch, SharkBlue, Sleek, Ziro y text, además de SpicetifyDefault. Se les quitaron los `@import` de Google Fonts para que no carguen nada de internet; los que tienen JavaScript (Dribbblish, StarryNight, Turntable) no se incluyen. Cualquier tema que añadas a `Themes/` o a la carpeta `Themes` de tu configuración aparece también en el selector tras `spicetify apply`. La elección es por usuario de Spotify y se aplica al recargar.
 - Menú de perfil → **Extensiones**: interruptores para activar o desactivar cada extensión instalada sin usar la terminal. El cambio se aplica al recargar Spotify (botón *Recargar ahora*).
@@ -36,7 +36,7 @@ Resultado: el binario solo hace peticiones de red a `localhost` (en modo `watch`
 ## Extensión Genius
 
 - **Botón en la barra del reproductor**, junto al de letras: abre la página de Genius de la canción que suena.
-- **Menú de los tres puntos** (o clic derecho) de una canción o un álbum: opción *Buscar en Genius*. Los singles van a la página de la canción, porque Genius no tiene página de álbum para ellos.
+- **Menú de los tres puntos** (o clic derecho) de una canción, un álbum o un artista: opción *Buscar en Genius*. Los singles van a la página de la canción, porque Genius no tiene página de álbum para ellos; los artistas, a su página `genius.com/artists/...`.
 
 Cómo funciona: Spotify no puede consultar la API de Genius (no envía cabeceras CORS), así que la extensión no hace ninguna petición. Abre en tu navegador una búsqueda de DuckDuckGo con el prefijo `\` ("voy a tener suerte") limitada a `genius.com`, que lleva directamente al primer resultado. DuckDuckGo recibe el nombre del artista y la canción; nada más.
 

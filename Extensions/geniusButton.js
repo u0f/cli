@@ -1,6 +1,6 @@
 // NAME: Genius Button
 // AUTHOR: fork
-// DESCRIPTION: Open the Genius page of the current track from the playbar, or of any track/album from its context menu.
+// DESCRIPTION: Open the Genius page of the current track from the playbar, or of any track, album or artist from its context menu.
 
 /// <reference path="../globals.d.ts" />
 
@@ -8,11 +8,13 @@
 // requests to Genius. It opens a DuckDuckGo "first result" query (`\` prefix) restricted to
 // genius.com in the system browser, which lands straight on the song or album page.
 (async function GeniusButton() {
-	while (!Spicetify?.Player?.data || !Spicetify?.Playbar?.Button || !Spicetify?.ContextMenu?.Item || !Spicetify?.GraphQL?.Definitions) {
+	while (!Spicetify?.Player?.data || !Spicetify?.Playbar?.Button || !Spicetify?.ContextMenu?.Item || !Spicetify?.GraphQL?.Definitions || !Spicetify?.Locale?.getLocale) {
 		await new Promise((resolve) => setTimeout(resolve, 300));
 	}
 
-	const { URI, GraphQL, Locale } = Spicetify;
+	const { GraphQL, Locale } = Spicetify;
+	// Spicetify.URI can be swapped after load; look helpers up on every call.
+	const is = (helper, uri) => typeof Spicetify.URI?.[helper] === "function" && Spicetify.URI[helper](uri);
 	const isSpanish = Locale.getLocale().startsWith("es");
 	const TEXT = isSpanish
 		? { open: "Abrir en Genius", search: "Buscar en Genius", noTrack: "No hay ninguna canción sonando", failed: "No se pudo leer la información" }
@@ -37,6 +39,7 @@
 	};
 	const openSong = (artist, title) => openSearch("genius.com", artist, title, "lyrics");
 	const openAlbum = (artist, album) => openSearch("genius.com/albums", artist, album);
+	const openArtist = (artist) => openSearch("genius.com/artists", "", artist);
 
 	const openCurrentTrack = () => {
 		const item = Spicetify.Player.data?.item;
@@ -46,10 +49,13 @@
 
 	const openFromUri = async ([uri]) => {
 		try {
-			if (URI.isTrack(uri)) {
+			if (is("isTrack", uri)) {
 				const { data } = await GraphQL.Request(GraphQL.Definitions.getTrack, { uri });
 				const track = data.trackUnion;
 				openSong(track.firstArtist?.items?.[0]?.profile?.name, track.name);
+			} else if (is("isArtist", uri)) {
+				const { data } = await GraphQL.Request(GraphQL.Definitions.queryArtistOverview, { uri, locale: Locale.getLocale(), includePrerelease: false });
+				openArtist(data.artistUnion.profile.name);
 			} else {
 				const { data } = await GraphQL.Request(GraphQL.Definitions.getAlbum, { uri, locale: Locale.getLocale(), offset: 0, limit: 1 });
 				const album = data.albumUnion;
@@ -65,7 +71,15 @@
 	};
 
 	const button = new Spicetify.Playbar.Button(TEXT.open, ICON, openCurrentTrack);
-	new Spicetify.ContextMenu.Item(TEXT.search, openFromUri, (uris) => uris.length === 1 && (URI.isTrack(uris[0]) || URI.isAlbum(uris[0])), ICON).register();
+	// Runs on every context menu render; an exception would break the whole menu.
+	const isSupported = (uris) => {
+		try {
+			return uris?.length === 1 && (is("isTrack", uris[0]) || is("isAlbum", uris[0]) || is("isArtist", uris[0]));
+		} catch {
+			return false;
+		}
+	};
+	new Spicetify.ContextMenu.Item(TEXT.search, openFromUri, isSupported, ICON).register();
 
 	// Playbar buttons are inserted first in the row; keep ours right next to the lyrics button.
 	const placeNextToLyrics = () => {

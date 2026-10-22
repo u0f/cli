@@ -5,22 +5,26 @@
 /// <reference path="../globals.d.ts" />
 
 (async function CoverArt() {
-	while (!Spicetify?.ContextMenu?.Item || !Spicetify?.GraphQL?.Definitions || !Spicetify?.Platform?.PlaylistAPI) {
+	while (!Spicetify?.ContextMenu?.Item || !Spicetify?.GraphQL?.Definitions || !Spicetify?.Platform?.PlaylistAPI || !Spicetify?.Locale?.getLocale) {
 		await new Promise((resolve) => setTimeout(resolve, 300));
 	}
 
-	const { URI, GraphQL, Platform, CosmosAsync } = Spicetify;
+	const { GraphQL, Platform, CosmosAsync } = Spicetify;
 	const TEXT = Spicetify.Locale?.getLocale?.().startsWith("es")
 		? { open: "Abrir imagen en máxima calidad", none: "No tiene imagen", failed: "No se pudo obtener la imagen" }
 		: { open: "Open image in full quality", none: "No image available", failed: "Could not get the image" };
 
+	// Spicetify.URI can be swapped for a fuller object after load and some helpers may be
+	// missing, so look them up on every call instead of keeping references.
+	const is = (helper, uri) => typeof Spicetify.URI?.[helper] === "function" && Spicetify.URI[helper](uri);
+
 	const IMAGE_QUERIES = [
-		[URI.isTrack, "fetchExtractedColorAndImageForTrackEntity"],
-		[URI.isAlbum, "fetchExtractedColorAndImageForAlbumEntity"],
-		[URI.isArtist, "fetchExtractedColorAndImageForArtistEntity"],
-		[URI.isPlaylistV1OrV2, "fetchExtractedColorAndImageForPlaylistEntity"],
-		[URI.isShow, "fetchExtractedColorAndImageForPodcastEntity"],
-		[URI.isEpisode, "fetchExtractedColorAndImageForEpisodeEntity"],
+		["isTrack", "fetchExtractedColorAndImageForTrackEntity"],
+		["isAlbum", "fetchExtractedColorAndImageForAlbumEntity"],
+		["isArtist", "fetchExtractedColorAndImageForArtistEntity"],
+		["isPlaylistV1OrV2", "fetchExtractedColorAndImageForPlaylistEntity"],
+		["isShow", "fetchExtractedColorAndImageForPodcastEntity"],
+		["isEpisode", "fetchExtractedColorAndImageForEpisodeEntity"],
 	];
 
 	// Every `{ url, width }` found anywhere in a GraphQL response.
@@ -41,16 +45,16 @@
 	};
 
 	const imageForUri = async (uri) => {
-		if (URI.isProfile(uri)) {
+		if (is("isProfile", uri)) {
 			// Internal endpoint the client itself uses; the public Web API often answers 429 here.
-			const username = encodeURIComponent(URI.fromString(uri).username);
+			const username = encodeURIComponent(Spicetify.URI.fromString(uri).username);
 			const profile = await CosmosAsync.get(`https://spclient.wg.spotify.com/user-profile-view/v3/profile/${username}?playlist_limit=0&artist_limit=0&episode_limit=0`);
 			return profile?.image_url;
 		}
-		const query = IMAGE_QUERIES.find(([matches]) => matches(uri))?.[1];
+		const query = IMAGE_QUERIES.find(([helper]) => is(helper, uri))?.[1];
 		const { data } = await GraphQL.Request(GraphQL.Definitions[query], { uri });
 		const url = largest(collectSources(data));
-		if (url || !URI.isPlaylistV1OrV2(uri)) return url;
+		if (url || !is("isPlaylistV1OrV2", uri)) return url;
 		// Spotify-made playlists (Daily Mix...) only expose their image through PlaylistAPI.
 		const meta = await Platform.PlaylistAPI.getMetadata(uri);
 		const image = meta?.images?.[0]?.url;
@@ -68,8 +72,15 @@
 		}
 	};
 
-	const isSupported = (uris) =>
-		uris.length === 1 && (URI.isProfile(uris[0]) || IMAGE_QUERIES.some(([matches, query]) => matches(uris[0]) && GraphQL.Definitions[query]));
+	// Runs on every context menu render: an exception here breaks the whole menu
+	// ("Something went wrong"), so it must never throw.
+	const isSupported = (uris) => {
+		try {
+			return uris?.length === 1 && (is("isProfile", uris[0]) || IMAGE_QUERIES.some(([helper, query]) => is(helper, uris[0]) && GraphQL.Definitions[query]));
+		} catch {
+			return false;
+		}
+	};
 
 	new Spicetify.ContextMenu.Item(TEXT.open, openImage, isSupported, "external-link").register();
 })();
