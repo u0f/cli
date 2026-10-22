@@ -10,6 +10,9 @@ on:
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/sync-upstream.yml]
 
 permissions:
   contents: read
@@ -47,15 +50,16 @@ jobs:
           - [ ] Check no new remote calls came back: \`git diff HEAD~1 -- src | grep -E '^\+.*https?://'\`.
           - [ ] Rebuild (\`pnpm build:wrapper\`, \`go build\`) and run \`spicetify backup apply\`."
 
-          if url=$(gh api "repos/$REPO/pulls" -f head="spicetify:main" -f base=main -f title="Sync with spicetify/cli" -f body="$body" --jq .html_url 2>err.txt); then
-            echo "Opened $url"
+          if gh api "repos/$REPO/pulls" -f head="spicetify:main" -f base=main -f title="Sync with spicetify/cli" -f body="$body" > pr.json 2>err.txt; then
+            echo "Opened $(jq -r .html_url pr.json)"
             exit 0
           fi
 
-          error=$(cat err.txt)
+          # gh prints only the status line on stderr; the reason is in the response body.
+          error="$(cat err.txt) $(jq -c '{message, errors}' pr.json 2>/dev/null)"
           echo "::warning::Could not open the pull request: $error"
           title="spicetify/cli has new commits to sync"
-          existing=$(gh api "repos/$REPO/issues?state=open&per_page=100" --jq "[.[] | select(.title == \"$title\" and (.pull_request | not))] | length")
+          existing=$(gh api "repos/$REPO/issues?state=open&per_page=100" --jq "[.[] | select(.title == \"$title\" and (.pull_request | not))] | length" 2>/dev/null) || existing=0
           if [ "$existing" = "0" ]; then
             gh api "repos/$REPO/issues" -f title="$title" -f body="$body
 
