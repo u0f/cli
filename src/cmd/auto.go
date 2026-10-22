@@ -24,6 +24,15 @@ func Auto(spicetifyVersion string) {
 		os.Exit(1)
 	}
 
+	// Fork: after upgrading spicetify, Apply refuses a backup preprocessed by the old
+	// version. Redo it the way "spicetify restore backup apply" would.
+	if backupSection.Key("with").MustString("") != spicetifyVersion {
+		Restore()
+		Backup(spicetifyVersion, true)
+		backStat = backupstatus.Get(prefsPath, backupFolder, backupSection.Key("version").MustString(""))
+		spotStat = spotifystatus.Get(appPath)
+	}
+
 	if isAppX {
 		spotStat = spotifystatus.Get(appDestPath)
 	}

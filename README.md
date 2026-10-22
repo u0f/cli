@@ -38,15 +38,37 @@ Cómo funciona: Spotify no puede consultar la API de Genius (no envía cabeceras
 ## Requisitos
 
 - Spotify de escritorio descargado de [spotify.com/download](https://www.spotify.com/download). **No sirve la versión de Microsoft Store**: está en `WindowsApps` y no se puede modificar.
-- [Go](https://go.dev/dl/) 1.26 o superior y [Node.js](https://nodejs.org/) 18 o superior con pnpm (`corepack enable`).
-- Ejecutar `spicetify` **sin permisos de administrador**. Si no, Spotify queda con la ventana en negro.
+- Ejecutar `spicetify` con los **mismos permisos que Spotify**, normalmente sin administrador. Si no, Spotify puede quedarse con la ventana en negro. Excepción: en la cuenta *Administrador* integrada de Windows todo, Spotify incluido, corre como administrador; ahí añade `--bypass-admin` a los comandos.
 
-## Compilar
+## Instalar
+
+Descarga el archivo de tu sistema desde [Releases](../../releases/latest) (`windows-amd64.zip`, `linux-amd64.tar.gz`, `darwin-arm64.tar.gz`…), comprueba su hash con `SHA256SUMS` y descomprímelo en una carpeta fija:
+
+```powershell
+Get-FileHash .\spicetify-*-windows-amd64.zip   # debe coincidir con la línea de SHA256SUMS
+```
+
+**Actualizar**: descarga la versión nueva, descomprímela encima de la misma carpeta y ejecuta `spicetify auto` (o deja que lo haga la tarea programada). Detecta que el backup se hizo con otra versión y repite `restore`, `backup` y `apply` solo.
+
+### Versiones
+
+`v<versión del original>-fork.<n>`. Por ejemplo, `v2.46.2-fork.1` es la primera versión de este fork sobre Spicetify 2.46.2; un cambio propio sube a `-fork.2`, y traer arreglos que llevan el original a 2.47.0 empieza en `v2.47.0-fork.1`.
+
+Para publicar una, la Action [`release.yml`](.github/workflows/release.yml) compila todas las plataformas y crea la release con los archivos y `SHA256SUMS` al subir la etiqueta:
+
+```bash
+git tag v2.46.2-fork.1
+git push origin v2.46.2-fork.1
+```
+
+## Compilar desde el código
+
+Necesitas [Go](https://go.dev/dl/) 1.26 o superior y [Node.js](https://nodejs.org/) 18 o superior con pnpm (`corepack enable`).
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm build:wrapper
-go build -ldflags "-X main.version=2.0.0-fork" -o spicetify.exe
+go build -ldflags "-X main.version=2.46.2-fork.1" -o spicetify.exe
 ```
 
 En Linux o macOS, usa `-o spicetify`. El ejecutable tiene que quedarse en esta carpeta, junto a `Extensions/`, `CustomApps/`, `Themes/`, `jsHelper/` y `css-map.json`.
@@ -72,7 +94,19 @@ Otros comandos habituales:
 | `spicetify restore` | Devolver Spotify a su estado original |
 | `spicetify -c` | Mostrar la ruta del fichero de configuración |
 
-**Cuando Spotify se actualiza** borra los cambios. Vuelve a ejecutar `spicetify backup apply`.
+**Cuando Spotify se actualiza** borra los cambios. `spicetify auto` lo detecta y vuelve a hacer backup y apply (si todo sigue aplicado, no hace nada). En Windows puedes dejarlo automático con una tarea programada que lo ejecute al iniciar sesión y cada hora, sin ventana y sin permisos de administrador (desde PowerShell, con la ruta de tu `spicetify.exe`):
+
+```powershell
+$exe = "C:\ruta\a\spicetify.exe"
+$user = "$env:USERDOMAIN\$env:USERNAME"
+Register-ScheduledTask -TaskName "Spicetify auto-apply" `
+  -Action (New-ScheduledTaskAction -Execute "conhost.exe" -Argument "--headless `"$exe`" auto -q" -WorkingDirectory (Split-Path $exe)) `
+  -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $user), (New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1)) `
+  -Principal (New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited) `
+  -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -MultipleInstances IgnoreNew)
+```
+
+En la cuenta *Administrador* integrada de Windows, añade `--bypass-admin` después de `auto -q`: esa cuenta ignora `-RunLevel Limited` y spicetify se negaría a ejecutarse. Si Spotify estaba abierto cuando se reaplica, los cambios se ven al reiniciarlo. Para quitarla: `Unregister-ScheduledTask -TaskName "Spicetify auto-apply"`.
 
 ## Mantenimiento
 
