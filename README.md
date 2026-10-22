@@ -8,7 +8,7 @@ Objetivo: lo justo para personalizar Spotify, **sin descargas ni código remoto*
 
 **Quitado**
 
-- Auto-actualización (`spicetify update`) y aviso de nuevas versiones: descargaban y reemplazaban el ejecutable sin verificar firma ni checksum.
+- La auto-actualización y el aviso de versiones del original: descargaban y reemplazaban el ejecutable sin verificar firma ni checksum. Este fork tiene su propio `spicetify update`, firmado (ver *Actualizar*).
 - Descarga del mapa CSS desde GitHub en cada `apply`: se usa siempre el `css-map.json` local.
 - Instaladores (`install.ps1` / `install.sh`) y la instalación de Marketplace, que ejecutaba un script remoto con `iex`.
 - Custom apps `reddit` y `new-releases`, CI y ficheros de mantenimiento del proyecto original.
@@ -31,7 +31,7 @@ Objetivo: lo justo para personalizar Spotify, **sin descargas ni código remoto*
 - Menú de perfil → **Temas**: selector de tema y paleta de colores, sin terminal. Incluye los temas solo-CSS de [spicetify-themes](https://github.com/spicetify/spicetify-themes) (MIT): Blossom, BurntSienna, Dreary, Flow, Matte, Nightlight, Onepunch, SharkBlue, Sleek, Ziro y text, además de SpicetifyDefault. Se les quitaron los `@import` de Google Fonts para que no carguen nada de internet; los que tienen JavaScript (Dribbblish, StarryNight, Turntable) no se incluyen. Cualquier tema que añadas a `Themes/` o a la carpeta `Themes` de tu configuración aparece también en el selector tras `spicetify apply`. La elección es por usuario de Spotify y se aplica al recargar.
 - Menú de perfil → **Extensiones**: interruptores para activar o desactivar cada extensión instalada sin usar la terminal. El cambio se aplica al recargar Spotify (botón *Recargar ahora*).
 
-Resultado: el binario solo hace peticiones de red a `localhost` (en modo `watch`).
+Resultado: el binario solo hace peticiones de red a `localhost` (en modo `watch`) y, una vez al día como mucho, a la API de releases de GitHub de este fork (desactivable con `auto_update = 0`).
 
 ## Extensión Genius
 
@@ -53,13 +53,19 @@ Descarga el archivo de tu sistema desde [Releases](../../releases/latest) (`wind
 Get-FileHash .\spicetify-*-windows-amd64.zip   # debe coincidir con la línea de SHA256SUMS
 ```
 
-**Actualizar**: descarga la versión nueva, descomprímela encima de la misma carpeta y ejecuta `spicetify auto` (o deja que lo haga la tarea programada). Detecta que el backup se hizo con otra versión y repite `restore`, `backup` y `apply` solo.
+### Actualizar
+
+Es automático: `spicetify auto` (el que ejecuta la tarea programada) comprueba como mucho una vez al día si hay una release más reciente en [u0f/cli](https://github.com/u0f/cli/releases/latest) y la instala. También puedes forzarlo con `spicetify update`. Para desactivarlo: `spicetify config auto_update 0`.
+
+Antes de tocar nada verifica que `SHA256SUMS` está firmado con la clave Ed25519 de las releases (la pública va dentro del binario, en `src/cmd/update.go`) y que el archivo descargado coincide con su hash; si algo no cuadra, no cambia nada. Después aparta el ejecutable actual (`.old`), descomprime la versión nueva encima de la carpeta y ejecuta el binario nuevo con `auto`, que detecta el cambio de versión y repite `restore`, `backup` y `apply`. Si la extracción falla, se restaura el ejecutable anterior.
+
+A mano también funciona: descarga el archivo, descomprímelo encima y ejecuta `spicetify auto`.
 
 ### Versiones
 
 `v<versión del original>-fork.<n>`. Por ejemplo, `v2.46.2-fork.1` es la primera versión de este fork sobre Spicetify 2.46.2; un cambio propio sube a `-fork.2`, y traer arreglos que llevan el original a 2.47.0 empieza en `v2.47.0-fork.1`.
 
-Para publicar una, la Action [`release.yml`](.github/workflows/release.yml) compila todas las plataformas y crea la release con los archivos y `SHA256SUMS` al subir la etiqueta:
+Para publicar una, la Action [`release.yml`](.github/workflows/release.yml) compila todas las plataformas, firma `SHA256SUMS` y crea la release al subir la etiqueta. Necesita el secret `UPDATE_SIGNING_KEY` con la clave privada Ed25519 en PEM; si falta o no corresponde a la pública de `update.go`, la release no se publica. En un fork propio, genera tu par (`openssl genpkey -algorithm ed25519 -out key.pem`), pon la pública (`openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64`) en `updatePublicKey` y `releaseRepo` apuntando a tu repo.
 
 ```bash
 git tag v2.46.2-fork.1
@@ -105,13 +111,13 @@ Otros comandos habituales:
 $exe = "C:\ruta\a\spicetify.exe"
 $user = "$env:USERDOMAIN\$env:USERNAME"
 Register-ScheduledTask -TaskName "Spicetify auto-apply" `
-  -Action (New-ScheduledTaskAction -Execute "conhost.exe" -Argument "--headless `"$exe`" auto -q" -WorkingDirectory (Split-Path $exe)) `
+  -Action (New-ScheduledTaskAction -Execute "conhost.exe" -Argument "--headless `"$exe`" auto -q -n" -WorkingDirectory (Split-Path $exe)) `
   -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $user), (New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1)) `
   -Principal (New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited) `
   -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -MultipleInstances IgnoreNew)
 ```
 
-En la cuenta *Administrador* integrada de Windows, añade `--bypass-admin` después de `auto -q`: esa cuenta ignora `-RunLevel Limited` y spicetify se negaría a ejecutarse. Si Spotify estaba abierto cuando se reaplica, los cambios se ven al reiniciarlo. Para quitarla: `Unregister-ScheduledTask -TaskName "Spicetify auto-apply"`.
+En la cuenta *Administrador* integrada de Windows, añade `--bypass-admin` después de `auto -q -n`: esa cuenta ignora `-RunLevel Limited` y spicetify se negaría a ejecutarse. Si Spotify estaba abierto cuando se reaplica, los cambios se ven al reiniciarlo. Para quitarla: `Unregister-ScheduledTask -TaskName "Spicetify auto-apply"`.
 
 ## Mantenimiento
 

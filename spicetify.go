@@ -312,8 +312,10 @@ func main() {
 			cmd.SpotifyRestart()
 
 		case "auto":
-			cmd.Auto(version)
-			shouldRestart = true
+			shouldRestart = cmd.Auto(version) || shouldRestart
+
+		case "update":
+			cmd.Update(version)
 
 		default:
 			utils.Fatal(errors.New(`Command "` + v + `" not found.
@@ -434,6 +436,9 @@ color               1. Print all color fields and values.
 
 config-dir          Show config directory in file viewer
 
+update              Install the latest signed release of this fork (u0f/cli), then run "auto".
+                    "auto" also does this once a day unless auto_update is 0.
+
 ` + utils.Bold("FLAGS") + `
 -q, --quiet         Quiet mode (no output).
 
@@ -500,6 +505,9 @@ spotify_launch_flags <string>
 
 always_enable_devtools <0 | 1>
     Whether Chrome DevTools is enabled when launching/restarting Spotify.
+
+auto_update <0 | 1>
+    Whether "auto" checks once a day for a newer signed release and installs it.
 
 ` + utils.Bold("[Preprocesses]") + `
 disable_sentry <0 | 1>

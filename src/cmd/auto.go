@@ -7,9 +7,13 @@ import (
 	spotifystatus "github.com/spicetify/cli/src/status/spotify"
 )
 
-// Auto checks Spotify state, re-backup and apply if needed, then launch
-// Spotify client normally.
-func Auto(spicetifyVersion string) {
+// Auto checks Spotify state, re-backup and apply if needed. It reports whether
+// anything was applied, so callers only restart Spotify when it changed.
+func Auto(spicetifyVersion string) bool {
+	// Fork: at most once a day, install a newer signed release first. On success the
+	// new binary takes over this run and the process exits inside AutoUpdate.
+	AutoUpdate(spicetifyVersion)
+
 	backupVersion := backupSection.Key("version").MustString("")
 	spotStat := spotifystatus.Get(appPath)
 	backStat := backupstatus.Get(prefsPath, backupFolder, backupVersion)
@@ -41,5 +45,7 @@ func Auto(spicetifyVersion string) {
 		CheckStates()
 		InitSetting()
 		Apply(spicetifyVersion)
+		return true
 	}
+	return false
 }

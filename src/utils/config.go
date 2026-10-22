@@ -24,6 +24,7 @@ var (
 			"overwrite_assets":       "0",
 			"spotify_launch_flags":   "",
 			"always_enable_devtools": "0",
+			"auto_update":            "1",
 		},
 		"Preprocesses": {
 			"disable_sentry":     "1",
