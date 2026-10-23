@@ -33,7 +33,7 @@ var (
 			"expose_apis":        "1",
 		},
 		"AdditionalOptions": {
-			"extensions":            "adblock.js|geniusButton.js|coverArt.js",
+			"extensions":            "adblock.js|geniusButton.js|coverArt.js|volumePercentage.js",
 			"custom_apps":           "",
 			"sidebar_config":        "0",
 			"home_config":           "1",
