@@ -209,11 +209,25 @@ func htmlMod(htmlPath string, flags Flag) {
 
 	// Fork: apply the theme picked in the profile menu (localStorage "spicetify:theme") by
 	// pointing the colors.css / user.css links, which precede this script, at xpui/themes.
+	// Themes the user added from that menu live in localStorage "spicetify:user-themes".
 	helperHTML.WriteString(`<script>
 			(() => {
-				let choice;
+				let choice, userThemes = [];
 				try { choice = JSON.parse(localStorage.getItem("spicetify:theme")); } catch {}
 				if (!choice?.theme || !choice?.scheme) return;
+				if (choice.user) {
+					try { userThemes = JSON.parse(localStorage.getItem("spicetify:user-themes")) || []; } catch {}
+					const theme = userThemes.find((t) => t?.name === choice.theme);
+					if (!theme) return;
+					const style = (css) => Object.assign(document.createElement("style"), { textContent: String(css ?? "") });
+					const colors = style(theme.schemes?.find((s) => s.name === choice.scheme)?.css);
+					const user = style(theme.css);
+					const colorsLink = document.querySelector("link.userCSS[href='colors.css']");
+					const userLink = document.querySelector("link.userCSS[href='user.css']");
+					colorsLink ? colorsLink.after(colors) : document.head.append(colors);
+					userLink ? userLink.replaceWith(user) : document.head.append(user);
+					return;
+				}
 				const base = "themes/" + encodeURIComponent(choice.theme) + "/";
 				document.querySelector("link.userCSS[href='colors.css']")?.setAttribute("href", base + encodeURIComponent(choice.scheme));
 				document.querySelector("link.userCSS[href='user.css']")?.setAttribute("href", base + "user.css");
@@ -261,24 +275,29 @@ func htmlMod(htmlPath string, flags Flag) {
 
 	// Fork: a small loader injects the extensions so they can be switched off from the
 	// profile menu (localStorage "spicetify:disabled-extensions") without running the CLI.
-	if len(flags.Extension) > 0 {
-		extensionsJSON, _ := json.Marshal(flags.Extension)
-		fmt.Fprintf(&extensionsHTML, `<script>
+	// It also runs the extensions the user added from that menu ("spicetify:user-extensions").
+	extensionsJSON, _ := json.Marshal(append([]string{}, flags.Extension...))
+	fmt.Fprintf(&extensionsHTML, `<script>
 			(() => {
-				let disabled = [];
+				let disabled = [], user = [];
 				try { disabled = JSON.parse(localStorage.getItem("spicetify:disabled-extensions")) || []; } catch {}
-				for (const name of %s) {
-					if (disabled.includes(name)) continue;
+				try { user = JSON.parse(localStorage.getItem("spicetify:user-extensions")) || []; } catch {}
+				const load = (name, src) => {
+					if (disabled.includes(name)) return;
 					const script = document.createElement("script");
-					script.src = "extensions/" + name;
+					script.src = src;
 					script.async = false;
 					if (name.endsWith(".mjs")) script.type = "module";
 					document.body.appendChild(script);
+				};
+				for (const name of %s) load(name, "extensions/" + name);
+				for (const ext of user) {
+					if (typeof ext?.name !== "string" || typeof ext?.code !== "string") continue;
+					load(ext.name, URL.createObjectURL(new Blob([ext.code], { type: "text/javascript" })));
 				}
 			})();
 		</script>
 		`, extensionsJSON)
-	}
 
 	for _, v := range flags.CustomApp {
 		manifest, _, err := utils.GetAppManifest(v)
