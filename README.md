@@ -91,8 +91,10 @@ En Linux o macOS, usa `-o spicetify`. El ejecutable tiene que quedarse en esta c
 Abre Spotify una vez, inicia sesión, ciérralo y ejecuta:
 
 ```bash
-./spicetify.exe backup apply
+./spicetify.exe auto
 ```
+
+`auto` hace el backup y el apply, y también sirve si ya tenías el Spicetify original: reutiliza tu `config-xpui.ini`, añade las extensiones de este fork y rehace el backup que dejó el original (con `backup apply` tendrías que hacer antes `spicetify restore`).
 
 Para comprobar que está activo, abre el menú de tu perfil en Spotify: debe aparecer *Experimental features*.
 

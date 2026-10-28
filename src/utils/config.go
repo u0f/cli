@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -34,6 +35,7 @@ var (
 		},
 		"AdditionalOptions": {
 			"extensions":            "adblock.js|geniusButton.js|coverArt.js|volumePercentage.js|trashSkip.js",
+			"bundled_extensions":    "1",
 			"custom_apps":           "",
 			"sidebar_config":        "0",
 			"home_config":           "1",
@@ -79,6 +81,21 @@ func ParseConfig(configPath string) Config {
 	}
 
 	needRewrite := false
+
+	// Configs made by upstream spicetify (or older fork versions) predate the
+	// bundled extensions, so add them once; later removals are respected.
+	if section, err := cfg.GetSection("AdditionalOptions"); err == nil && !section.HasKey("bundled_extensions") {
+		exts := section.Key("extensions").Strings("|")
+		for _, ext := range strings.Split(configLayout["AdditionalOptions"]["extensions"], "|") {
+			if !slices.Contains(exts, ext) {
+				exts = append(exts, ext)
+			}
+		}
+		section.Key("extensions").SetValue(strings.Join(exts, "|"))
+		section.NewKey("bundled_extensions", "1")
+		needRewrite = true
+	}
+
 	for sectionName, keyList := range configLayout {
 		section, err := cfg.GetSection(sectionName)
 		if err != nil {
