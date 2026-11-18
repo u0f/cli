@@ -116,37 +116,29 @@ func Copy(src, dest string, recursive bool, filters []string) error {
 		return err
 	}
 
-	os.MkdirAll(dest, 0700)
+	if err := os.MkdirAll(dest, 0700); err != nil {
+		return err
+	}
 
 	for _, file := range dir {
 		fileName := file.Name()
 		fSrcPath := filepath.Join(src, fileName)
 
-		fDestPath := filepath.Join(dest, fileName)
 		if file.IsDir() && recursive {
-			os.MkdirAll(fDestPath, 0700)
-			if err = Copy(fSrcPath, fDestPath, true, filters); err != nil {
+			if err := Copy(fSrcPath, filepath.Join(dest, fileName), true, filters); err != nil {
 				return err
 			}
-		} else {
-			if len(filters) > 0 {
-				isMatch := false
+			continue
+		}
 
-				for _, filter := range filters {
-					if strings.Contains(fileName, filter) {
-						isMatch = true
-						break
-					}
-				}
+		if len(filters) > 0 && !slices.ContainsFunc(filters, func(filter string) bool {
+			return strings.Contains(fileName, filter)
+		}) {
+			continue
+		}
 
-				if !isMatch {
-					continue
-				}
-			}
-
-			if err := CopyFile(fSrcPath, dest); err != nil {
-				return err
-			}
+		if err := CopyFile(fSrcPath, dest); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -160,7 +152,9 @@ func CopyFile(srcPath, dest string) error {
 	}
 	defer fSrc.Close()
 
-	CheckExistAndCreate(dest)
+	if err := os.MkdirAll(dest, 0700); err != nil {
+		return err
+	}
 	destPath := filepath.Join(dest, filepath.Base(srcPath))
 	fDest, err := os.OpenFile(
 		destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0700)
@@ -170,11 +164,7 @@ func CopyFile(srcPath, dest string) error {
 	defer fDest.Close()
 
 	_, err = io.Copy(fDest, fSrc)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // Replace uses Regexp to find any matched from `input` with `regexpTerm`
